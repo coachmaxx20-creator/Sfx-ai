@@ -179,14 +179,7 @@ def run_trade(chat_id):
         order_id = None
 
     if not order_id:
-        send_msg(chat_id,
-            f"⚠️ Could not place trade on {pair_label}.
-
-"
-            f"This pair may not be available right now.
-"
-            f"Try again — the bot will pick a different pair."
-        )
+        send_msg(chat_id, "Could not place trade. This pair may not be available right now. Try again.")
         bal = get_balance(chat_id)
         show_main_buttons(chat_id, bal)
         return
