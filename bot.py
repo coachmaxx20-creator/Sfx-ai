@@ -176,9 +176,16 @@ class TradingEngine:
 
     def check_result(self, order_id, duration):
         try:
-            time.sleep(duration * 60 + 5)
-            result = self.api.check_win_v3(order_id)
-            return result
+            time.sleep(duration * 60 + 3)
+            for attempt in range(10):
+                try:
+                    result = self.api.check_win_v3(order_id)
+                    if result is not None:
+                        return result
+                except Exception as e:
+                    log.error(f"Result attempt {attempt+1} error: {e}")
+                time.sleep(3)
+            return 0
         except Exception as e:
             log.error(f"Result error: {e}")
             return 0
