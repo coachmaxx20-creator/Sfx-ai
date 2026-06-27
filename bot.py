@@ -174,6 +174,25 @@ class TradingEngine:
             log.error(f"Trade error: {e}")
             return None
 
+    def wait_and_get_result(self, amount, duration):
+        """Get result by comparing balance before and after trade."""
+        try:
+            bal_before = self.api.get_balance()
+            time.sleep(duration * 60 + 5)
+            # Retry balance check up to 5 times
+            for _ in range(5):
+                try:
+                    bal_after = self.api.get_balance()
+                    diff = round(bal_after - bal_before, 2)
+                    log.info(f"Balance before: {bal_before} after: {bal_after} diff: {diff}")
+                    return diff
+                except:
+                    time.sleep(2)
+            return 0
+        except Exception as e:
+            log.error(f"Balance check error: {e}")
+            return 0
+
     def check_result(self, order_id, duration):
         """Wait for trade to expire then check result with multiple methods."""
         try:
