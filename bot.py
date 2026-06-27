@@ -242,14 +242,43 @@ bot_threads  = {}
 user_engines = {}
 
 def send_msg(chat_id, text):
+    """Send message safely from any thread."""
+    if not telegram_app:
+        return
     import asyncio
-    if telegram_app:
+    import concurrent.futures
+
+    async def _send():
         try:
-            asyncio.run(telegram_app.bot.send_message(
+            await telegram_app.bot.send_message(
                 chat_id=chat_id, text=text, parse_mode="Markdown"
-            ))
+            )
         except Exception as e:
             log.error(f"Send error: {e}")
+
+    # Try multiple methods to send from thread
+    try:
+        loop = telegram_app.bot._base_url and asyncio.get_event_loop()
+        if loop and loop.is_running():
+            import concurrent.futures
+            future = asyncio.run_coroutine_threadsafe(_send(), loop)
+            future.result(timeout=10)
+        else:
+            asyncio.run(_send())
+    except Exception as e:
+        log.error(f"Send_msg failed: {e}")
+        # Last resort — try direct requests
+        try:
+            import requests
+            token = TELEGRAM_TOKEN
+            url   = f"https://api.telegram.org/bot{token}/sendMessage"
+            requests.post(url, json={
+                "chat_id":    chat_id,
+                "text":       text,
+                "parse_mode": "Markdown"
+            }, timeout=10)
+        except Exception as e2:
+            log.error(f"Direct send also failed: {e2}")
 
 def run_trading(chat_id):
     engine = user_engines.get(str(chat_id))
