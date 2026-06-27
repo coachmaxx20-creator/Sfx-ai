@@ -107,18 +107,8 @@ PAIR_LABELS = {
 }
 
 def get_available_pair(api):
-    """Find a pair that is actually open on IQ Option right now."""
-    try:
-        all_assets = api.get_all_open_time()
-        for pair in PAIRS:
-            # Check in turbo, binary and digital markets
-            for market in ["turbo","binary","digital"]:
-                if all_assets.get(market,{}).get(pair,{}).get("open", False):
-                    return pair
-        # If none found, return first pair anyway
-        return PAIRS[0]
-    except:
-        return PAIRS[0]
+    """Rotate through pairs — always returns one."""
+    return random.choice(PAIRS)
 
 def get_signal(api):
     try:
@@ -162,21 +152,24 @@ def run_trade(chat_id):
         f"_Trade is running..._"
     )
 
-    # Place trade — try turbo first, then binary
+    # Place trade — try up to 3 different pairs if one fails
     order_id = None
-    try:
-        # Try turbo (fast options)
-        ok, order_id = api.buy(amount, pair, signal, duration)
-        if not ok or not order_id:
-            order_id = None
-            log.warning(f"Turbo buy failed for {pair}, trying binary...")
-            # Try binary options
-            ok, order_id = api.buy_digital_spot(pair, amount, signal, duration)
-            if not ok:
+    tried = []
+    for attempt_pair in [pair] + [p for p in PAIRS if p != pair][:2]:
+        tried.append(attempt_pair)
+        try:
+            ok, order_id = api.buy(amount, attempt_pair, signal, duration)
+            if ok and order_id:
+                pair = attempt_pair
+                pair_label = PAIR_LABELS.get(pair, pair)
+                log.info(f"Trade placed on {pair}: order_id={order_id}")
+                break
+            else:
                 order_id = None
-    except Exception as e:
-        log.error(f"Trade placement error: {e}")
-        order_id = None
+                log.warning(f"buy() failed for {attempt_pair}, trying next...")
+        except Exception as e:
+            log.error(f"Trade error on {attempt_pair}: {e}")
+            order_id = None
 
     if not order_id:
         send_msg(chat_id, "Could not place trade. This pair may not be available right now. Try again.")
