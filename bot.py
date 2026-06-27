@@ -106,9 +106,23 @@ PAIR_LABELS = {
     "AUDCAD-OTC":"AUD/CAD (OTC)","EURGBP-OTC":"EUR/GBP (OTC)"
 }
 
+def get_available_pair(api):
+    """Find a pair that is actually open on IQ Option right now."""
+    try:
+        all_assets = api.get_all_open_time()
+        for pair in PAIRS:
+            # Check in turbo, binary and digital markets
+            for market in ["turbo","binary","digital"]:
+                if all_assets.get(market,{}).get(pair,{}).get("open", False):
+                    return pair
+        # If none found, return first pair anyway
+        return PAIRS[0]
+    except:
+        return PAIRS[0]
+
 def get_signal(api):
     try:
-        pair = random.choice(PAIRS)
+        pair = get_available_pair(api)
         candles = api.get_candles(pair, 60, 30, time.time())
         if not candles or len(candles)<14:
             return random.choice(["call","put"]), pair
@@ -120,7 +134,7 @@ def get_signal(api):
         signal = "call" if rsi<35 else "put" if rsi>65 else random.choice(["call","put"])
         return signal, pair
     except:
-        return random.choice(["call","put"]), random.choice(PAIRS)
+        return random.choice(["call","put"]), PAIRS[0]
 
 # ── TRADE THREAD ──────────────────────────────
 def run_trade(chat_id):
@@ -148,16 +162,31 @@ def run_trade(chat_id):
         f"_Trade is running..._"
     )
 
-    # Place trade
+    # Place trade — try turbo first, then binary
+    order_id = None
     try:
+        # Try turbo (fast options)
         ok, order_id = api.buy(amount, pair, signal, duration)
-        if not ok:
-            send_msg(chat_id, "⚠️ Trade could not be placed. Please try again.")
-            bal = get_balance(chat_id)
-            show_main_buttons(chat_id, bal)
-            return
+        if not ok or not order_id:
+            order_id = None
+            log.warning(f"Turbo buy failed for {pair}, trying binary...")
+            # Try binary options
+            ok, order_id = api.buy_digital_spot(pair, amount, signal, duration)
+            if not ok:
+                order_id = None
     except Exception as e:
-        send_msg(chat_id, f"⚠️ Error placing trade: {str(e)[:80]}")
+        log.error(f"Trade placement error: {e}")
+        order_id = None
+
+    if not order_id:
+        send_msg(chat_id,
+            f"⚠️ Could not place trade on {pair_label}.
+
+"
+            f"This pair may not be available right now.
+"
+            f"Try again — the bot will pick a different pair."
+        )
         bal = get_balance(chat_id)
         show_main_buttons(chat_id, bal)
         return
