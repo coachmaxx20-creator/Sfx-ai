@@ -175,19 +175,45 @@ class TradingEngine:
             return None
 
     def check_result(self, order_id, duration):
+        """Wait for trade to expire then check result with multiple methods."""
         try:
-            time.sleep(duration * 60 + 3)
-            for attempt in range(10):
+            # Wait full duration + buffer
+            time.sleep(duration * 60 + 5)
+
+            # Method 1: check_win_v3 with retries
+            for attempt in range(5):
                 try:
                     result = self.api.check_win_v3(order_id)
                     if result is not None:
+                        log.info(f"Result via check_win_v3: {result}")
                         return result
                 except Exception as e:
-                    log.error(f"Result attempt {attempt+1} error: {e}")
-                time.sleep(3)
+                    log.error(f"check_win_v3 attempt {attempt+1}: {e}")
+                time.sleep(2)
+
+            # Method 2: check via get_async_order
+            for attempt in range(5):
+                try:
+                    orders = self.api.get_optioninfo_v2(10)
+                    if orders and "options" in orders:
+                        for opt in orders["options"]:
+                            if opt.get("id") == order_id:
+                                profit = opt.get("profit", 0)
+                                win    = opt.get("win", "")
+                                if win == "win":
+                                    return float(profit)
+                                elif win == "loose":
+                                    return -float(opt.get("amount", 0))
+                                elif win == "equal":
+                                    return 0
+                except Exception as e:
+                    log.error(f"optioninfo attempt {attempt+1}: {e}")
+                time.sleep(2)
+
+            log.warning(f"Could not get result for order {order_id} — treating as draw")
             return 0
         except Exception as e:
-            log.error(f"Result error: {e}")
+            log.error(f"check_result fatal error: {e}")
             return 0
 
 # ─────────────────────────────────────────────
