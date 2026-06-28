@@ -160,11 +160,22 @@ def get_balance(chat_id):
     except: return 0.0
 
 # ── PAIRS ─────────────────────────────────────
-PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","NZDUSD-OTC","AUDCAD-OTC","EURGBP-OTC"]
+PAIRS = [
+    "EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","NZDUSD-OTC",
+    "AUDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC",
+    "USDCAD-OTC","USDCHF-OTC"
+]
 PAIR_LABELS = {
-    "EURUSD-OTC":"EUR/USD (OTC)","GBPUSD-OTC":"GBP/USD (OTC)",
-    "AUDUSD-OTC":"AUD/USD (OTC)","NZDUSD-OTC":"NZD/USD (OTC)",
-    "AUDCAD-OTC":"AUD/CAD (OTC)","EURGBP-OTC":"EUR/GBP (OTC)"
+    "EURUSD-OTC": "EUR/USD (OTC)",
+    "GBPUSD-OTC": "GBP/USD (OTC)",
+    "AUDUSD-OTC": "AUD/USD (OTC)",
+    "NZDUSD-OTC": "NZD/USD (OTC)",
+    "AUDCAD-OTC": "AUD/CAD (OTC)",
+    "EURGBP-OTC": "EUR/GBP (OTC)",
+    "EURJPY-OTC": "EUR/JPY (OTC)",
+    "GBPJPY-OTC": "GBP/JPY (OTC)",
+    "USDCAD-OTC": "USD/CAD (OTC)",
+    "USDCHF-OTC": "USD/CHF (OTC)"
 }
 
 # ── TECHNICAL INDICATORS ──────────────────────
