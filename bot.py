@@ -485,11 +485,11 @@ def analyse_market(api, pair):
             else:
                 details.append(f"❌ {name}: No signal")
 
-        # Need at least 2 strategies agreeing
-        if len(calls) >= 2:
+        # Need at least 3 strategies agreeing
+        if len(calls) >= 3:
             final_signal = "call"
             agreeing     = calls
-        elif len(puts) >= 2:
+        elif len(puts) >= 3:
             final_signal = "put"
             agreeing     = puts
         else:
