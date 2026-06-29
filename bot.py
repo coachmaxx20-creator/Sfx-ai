@@ -280,7 +280,7 @@ def strategy1_ema_trend_pullback(candles):
         rsi_v=rsi(closes[-20:]); atr_v=atr_val(candles[-20:])
         adx_v=adx_val(candles[-20:]); price=closes[-1]
         last=candles[-1]; prev=candles[-2]
-        if adx_v<22 or atr_v<0.00005: return None,0
+        if adx_v<15 or atr_v<0.00001: return None,0
         score=0
         # BUY
         if e20>e50:
@@ -289,7 +289,7 @@ def strategy1_ema_trend_pullback(candles):
             if e50<price<=e20*1.003: score+=25
             if 38<=rsi_v<=58: score+=20
             if is_bull_engulf(prev,last) or is_hammer(last): score+=15
-            if score>=70: return "call", min(score,100)
+            if score>=50: return "call", min(score,100)
         # SELL
         if e20<e50:
             score+=20
@@ -297,7 +297,7 @@ def strategy1_ema_trend_pullback(candles):
             if e20*0.997<=price<e50: score+=25
             if 42<=rsi_v<=62: score+=20
             if is_bear_engulf(prev,last) or is_shooting_star(last): score+=15
-            if score>=70: return "put", min(score,100)
+            if score>=50: return "put", min(score,100)
         return None,0
     except Exception as e:
         log.error(f"S1 error: {e}"); return None,0
@@ -335,7 +335,7 @@ def strategy2_bollinger_squeeze(candles):
             if volumes[-1]>avg_vol*1.2: score+=20
             if rsi_v>55: score+=15
             if is_bull_engulf(prev,last): score+=15
-            if score>=70: return "call", min(score,100)
+            if score>=50: return "call", min(score,100)
         # SELL breakout
         if price<bb_low and last["close"]<last["open"]:
             score+=30
@@ -343,7 +343,7 @@ def strategy2_bollinger_squeeze(candles):
             if volumes[-1]>avg_vol*1.2: score+=20
             if rsi_v<45: score+=15
             if is_bear_engulf(prev,last): score+=15
-            if score>=70: return "put", min(score,100)
+            if score>=50: return "put", min(score,100)
         return None,0
     except Exception as e:
         log.error(f"S2 error: {e}"); return None,0
@@ -375,7 +375,7 @@ def strategy3_candlestick_volume(candles):
             if strong_candle: score+=20
             if rsi_v<50: score+=15
             if last["close"]>prev["close"]>prev2["close"]: score+=15
-            if score>=70: return "call", min(score,100)
+            if score>=50: return "call", min(score,100)
         # SELL signals
         sell_pattern=is_bear_engulf(prev,last) or is_shooting_star(last) or (is_bear_engulf(prev2,prev) and last["close"]<prev["close"])
         if sell_pattern and rsi_v>35:
@@ -384,7 +384,7 @@ def strategy3_candlestick_volume(candles):
             if strong_candle: score+=20
             if rsi_v>50: score+=15
             if last["close"]<prev["close"]<prev2["close"]: score+=15
-            if score>=70: return "put", min(score,100)
+            if score>=50: return "put", min(score,100)
         return None,0
     except Exception as e:
         log.error(f"S3 error: {e}"); return None,0
@@ -414,7 +414,7 @@ def strategy4_multi_timeframe(candles_1m, candles_5m):
             if pulled_back and price_1m>e20_1m: score+=30
             if is_bull_engulf(prev_1m,last_1m) or last_1m["close"]>last_1m["open"]: score+=25
             if rsi_1m>45: score+=15
-            if score>=70: return "call", min(score,100)
+            if score>=50: return "call", min(score,100)
         # 5M BEARISH trend + 1M pullback entry
         if e20_5m<e50_5m and price_5m<e20_5m and rsi_5m<50:
             score+=30
@@ -422,7 +422,7 @@ def strategy4_multi_timeframe(candles_1m, candles_5m):
             if pulled_back and price_1m<e20_1m: score+=30
             if is_bear_engulf(prev_1m,last_1m) or last_1m["close"]<last_1m["open"]: score+=25
             if rsi_1m<55: score+=15
-            if score>=70: return "put", min(score,100)
+            if score>=50: return "put", min(score,100)
         return None,0
     except Exception as e:
         log.error(f"S4 error: {e}"); return None,0
@@ -442,7 +442,7 @@ def strategy5_macd_rsi_momentum(candles):
         rsi_v=rsi(closes[-15:])
         ml,sl,hist=macd_vals(closes)
         pml,psl,phist=prev_macd(closes)
-        if adx_v<22 or atr_v<0.00005: return None,0
+        if adx_v<15 or atr_v<0.00001: return None,0
         score=0
         # BUY: above EMA50, MACD bullish cross, RSI momentum up
         if price>e50:
@@ -452,7 +452,7 @@ def strategy5_macd_rsi_momentum(candles):
             if hist>0 and hist>phist: score+=25
             if rsi_v>50 and rsi_v<75: score+=15
             if adx_v>25: score+=10
-            if score>=70: return "call", min(score,100)
+            if score>=50: return "call", min(score,100)
         # SELL: below EMA50, MACD bearish cross, RSI momentum down
         if price<e50:
             score+=20
@@ -461,7 +461,7 @@ def strategy5_macd_rsi_momentum(candles):
             if hist<0 and hist<phist: score+=25
             if rsi_v<50 and rsi_v>25: score+=15
             if adx_v>25: score+=10
-            if score>=70: return "put", min(score,100)
+            if score>=50: return "put", min(score,100)
         return None,0
     except Exception as e:
         log.error(f"S5 error: {e}"); return None,0
@@ -506,18 +506,20 @@ def analyse_market(api, pair):
         calls = [(n,c) for n,s,c in strategies if s=="call"]
         puts  = [(n,c) for n,s,c in strategies if s=="put"]
 
+        log.info(f"{pair}: calls={len(calls)} puts={len(puts)}")
+
         # ALL 5 must agree
         if len(calls)==5:
             final="call"; agreeing=calls
         elif len(puts)==5:
             final="put"; agreeing=puts
         else:
-            agreed = len(calls) if len(calls)>len(puts) else len(puts)
             return None,0,DEFAULT_DURATION,details
 
         # Confidence = weighted average of all scores
         avg_score  = np.mean([c for _,c in agreeing])
         confidence = min(int(avg_score), 99)
+        log.info(f"{pair}: ALL 5 AGREE on {final} with confidence {confidence}%")
 
         if confidence < CONFIDENCE_THRESHOLD:
             return None, confidence, DEFAULT_DURATION, details
@@ -548,54 +550,58 @@ def run_trade(chat_id):
     user   = get_user(chat_id)
     amount = float(user.get("trade_amount", 1))
 
-    # Pause if too many consecutive losses
+    # Warn if consecutive losses
     consec = get_consecutive_losses()
     if consec >= 3:
-        send_msg(chat_id,
-            f"⚠️ *Caution — {consec} Consecutive Losses*\n\n"
-            f"The bot has learned from recent mistakes and is being extra selective.\n"
-            f"Analysing market for a high quality setup..."
-        )
-
-    # Pick best available pair (avoid pairs with many losses)
-    best_pairs = get_best_pairs()
-    available  = [p for p in best_pairs if not should_avoid_pair(p)]
-    if not available:
-        available = best_pairs  # Reset if all avoided
-        m = load_mistakes()
-        m["pair_losses"] = {}  # Reset pair loss memory
-        save_mistakes(m)
-
-    # Avoid bad hours
-    if should_avoid_hour():
-        send_msg(chat_id,
-            "⚠️ *Bad Trading Hour Detected*\n\n"
-            "The bot has learned this hour has poor results historically.\n"
-            "Proceeding with extra caution and higher thresholds...",
-        )
-
-    pair       = available[0]
-    pair_label = PAIR_LABELS.get(pair, pair)
+        send_msg(chat_id, f"⚠️ *{consec} Consecutive Losses — Being Extra Selective*\n\nScanning all 10 pairs...")
 
     send_msg(chat_id,
-        f"🔍 *Analysing {pair_label}...*\n\n"
-        f"_Running 5 professional strategies.\n"
-        f"All must agree at 90%+ confidence..._"
+        "🔍 *Scanning all 10 pairs...*\n\n"
+        "_Running 5 strategies on each pair.\n"
+        "Looking for 90%+ confidence setup..._"
     )
 
-    signal, confidence, duration, details = analyse_market(api, pair)
-    strategy_summary = "\n".join(details)
+    # Scan ALL 10 pairs and find the best setup
+    best_signal     = None
+    best_confidence = 0
+    best_duration   = DEFAULT_DURATION
+    best_details    = []
+    best_pair       = None
+
+    for scan_pair in PAIRS:
+        try:
+            log.info(f"Scanning {scan_pair}...")
+            sig, conf, dur, det = analyse_market(api, scan_pair)
+            log.info(f"{scan_pair}: signal={sig} confidence={conf}")
+            if sig and conf > best_confidence:
+                best_signal     = sig
+                best_confidence = conf
+                best_duration   = dur
+                best_details    = det
+                best_pair       = scan_pair
+            time.sleep(0.5)
+        except Exception as e:
+            log.error(f"Error scanning {scan_pair}: {e}")
+            continue
+
+    signal         = best_signal
+    confidence     = best_confidence
+    duration       = best_duration
+    details        = best_details
+    pair           = best_pair if best_pair else PAIRS[0]
+    pair_label     = PAIR_LABELS.get(pair, pair)
+    strategy_summary = "\n".join(details) if details else "No signals found on any pair"
 
     if not signal:
         send_msg(chat_id,
-            f"📊 *Analysis Complete — NO TRADE*\n\n"
-            f"Pair: {pair_label}\n"
-            f"Confidence: {confidence}% (need {CONFIDENCE_THRESHOLD}%)\n\n"
-            f"*Strategy Results:*\n{strategy_summary}\n\n"
-            f"_Not all strategies agree. Protecting your capital._",
+            f"📊 *Scanned All 10 Pairs — NO TRADE*\n\n"
+            f"Best confidence found: {best_confidence}%\n"
+            f"Required: {CONFIDENCE_THRESHOLD}%\n\n"
+            f"_Not all 5 strategies agree on any pair.\n"
+            f"Capital protected. Try again later._",
             keyboard=make_keyboard([
-                [("🔍 Analyse Again", "place_trade")],
-                [("⚙️ Settings",      "settings")]
+                [("🔍 Scan Again", "place_trade")],
+                [("⚙️ Settings",   "settings")]
             ])
         )
         return
