@@ -14,7 +14,7 @@ TELEGRAM_TOKEN       = os.environ.get("TELEGRAM_TOKEN", "")
 ADMIN_CHAT_ID        = 8319282451
 DATA_FILE            = "users.json"
 MISTAKES_FILE        = "mistakes.json"
-CONFIDENCE_THRESHOLD = 90   # All 5 must agree + 90% confidence
+CONFIDENCE_THRESHOLD = 90   # 4 out of 5 must agree + 90% confidence
 DEFAULT_DURATION     = 5    # Default 5 minutes
 STRONG_DURATION      = 1    # 1 minute for exceptionally strong setups
 
@@ -143,15 +143,20 @@ def show_main_buttons(chat_id, balance):
 active_apis = {}
 
 def connect_iqoption(email, password, account_type="PRACTICE"):
-    try:
-        api = IQ_Option(email, password)
-        check, reason = api.connect()
-        if check:
-            api.change_balance(account_type)
-            return api, None
-        return None, str(reason)
-    except Exception as e:
-        return None, str(e)
+    for attempt in range(3):
+        try:
+            log.info(f"Connection attempt {attempt+1} for {email}")
+            api = IQ_Option(email, password)
+            check, reason = api.connect()
+            if check:
+                api.change_balance(account_type)
+                return api, None
+            log.warning(f"Attempt {attempt+1} failed: {reason}")
+            time.sleep(3)
+        except Exception as e:
+            log.error(f"Connection error attempt {attempt+1}: {e}")
+            time.sleep(3)
+    return None, "Connection failed. Please check your internet and try again."
 
 def get_balance(chat_id):
     api = active_apis.get(str(chat_id))
@@ -508,10 +513,10 @@ def analyse_market(api, pair):
 
         log.info(f"{pair}: calls={len(calls)} puts={len(puts)}")
 
-        # ALL 5 must agree
-        if len(calls)==5:
+        # 4 out of 5 must agree
+        if len(calls)>=4:
             final="call"; agreeing=calls
-        elif len(puts)==5:
+        elif len(puts)>=4:
             final="put"; agreeing=puts
         else:
             return None,0,DEFAULT_DURATION,details
@@ -646,7 +651,7 @@ def run_trade(chat_id):
         f"Amount: *${amount:.2f}*\n"
         f"Duration: *{dur_label}*\n"
         f"Confidence: *{confidence}%*\n\n"
-        f"*All 5 strategies agreed:*\n{strategy_summary}\n\n"
+        f"*4+ strategies agreed:*\n{strategy_summary}\n\n"
         f"_Trade is running..._"
     )
 
@@ -701,7 +706,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 *Welcome To SFX Pro Bot!*\n\n"
         "Powered by *5 professional trading strategies*.\n\n"
-        "🧠 All 5 strategies must agree\n"
+        "🧠 4 out of 5 strategies must agree\n"
         "🎯 Minimum 90% confidence required\n"
         "⏱ 5 min trades (1 min for elite setups)\n"
         "💵 You choose trade amount\n"
@@ -831,7 +836,7 @@ async def _connect_account(message, chat_id):
             f"💰 Balance: *${balance:.2f}*\n"
             f"💵 Trade Amount: *${amount:.2f}*\n\n"
             f"🧠 *5 Strategy System Active*\n"
-            f"🎯 All 5 must agree at 90%+\n"
+            f"🎯 4/5 must agree at 90%+\n"
             f"⏱ Default: 5 min | Elite: 1 min\n\n"
             f"Tap *Place a Trade* to start 👇",
             parse_mode="Markdown",reply_markup=InlineKeyboardMarkup(kb)
